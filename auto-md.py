@@ -50,9 +50,11 @@ def correct_text(text, config):
     prompt = f"""Eres un corrector de Markdown especializado en español. Tu tarea es corregir errores ortográficos, semánticos obvios y limpiar el formato Markdown, pero manteniendo intacto el contenido original.
 
 INSTRUCCIONES ESPECÍFICAS:
-✅ Corregir errores ortográficos en español
+✅ Corregir errores ortográficos en español y en inglés.
 ✅ Corregir errores semánticos obvios (como palabras mal escritas o frases incoherentes)
 ✅ Limpiar Markdown: encabezados, listas, espacios, links
+✅ Cuando lo amerite, agregar encabezados u otras estructuras Markdown que faciliten la lectura comprensiva
+❌ NO hacer traducciones
 ❌ NO cambiar términos técnicos, nombres propios, código
 ❌ NO alterar el significado ni reescribir frases
 ❌ NO tocar bloques de código (entre backticks ``` o `)
