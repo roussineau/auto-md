@@ -1,4 +1,4 @@
 # Configuración para Auto-MD
 ollama_host: "http://localhost:11434"  # Cambia a la IP de la máquina con GPU si es necesario
 model: "qwen2.5:7b"
-timeout: 60  # Segundos de timeout para la API de Ollama
+timeout: 150  # Segundos de timeout para la API de Ollama

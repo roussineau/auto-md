@@ -10,7 +10,8 @@ import time
 import requests
 import yaml
 from pathlib import Path
-from difflib import unified_diff
+from difflib import unified_diff, ndiff
+from colorama import init, Fore, Back, Style
 
 def load_config():
     """Carga la configuración desde config.yaml."""
@@ -47,29 +48,28 @@ def get_files_to_process(path, days=None):
 
 def correct_text(text, config):
     """Corrige el texto usando el LLM."""
-    prompt = f"""Eres un corrector de Markdown especializado en español. Tu tarea es corregir errores ortográficos, semánticos obvios y limpiar el formato Markdown, pero manteniendo intacto el contenido original.
+    system_prompt = """Sos un corrector ortográfico de notas escritas en español. Tu única tarea es corregir errores de ortografía y formato Markdown. Devolvés ÚNICAMENTE el texto corregido, sin comentarios, sin traducciones, sin explicaciones."""
 
-INSTRUCCIONES ESPECÍFICAS:
-✅ Corregir errores ortográficos en español y en inglés.
-✅ Corregir errores semánticos obvios (como palabras mal escritas o frases incoherentes)
-✅ Limpiar Markdown: encabezados, listas, espacios, links
-✅ Cuando lo amerite, agregar encabezados u otras estructuras Markdown que faciliten la lectura comprensiva
-❌ NO hacer traducciones
-❌ NO cambiar términos técnicos, nombres propios, código
-❌ NO alterar el significado ni reescribir frases
-❌ NO tocar bloques de código (entre backticks ``` o `)
-❌ Devolver SOLO el texto corregido, sin comentarios ni explicaciones
+    prompt = f"""Corregí los errores ortográficos y de formato Markdown del siguiente texto.
 
-Texto a corregir:
-{text}
+IMPORTANTE:
+- NUNCA DEBES HACER TRADUCCIONES
+- La ortografía debe ser perfecta
+- Las palabras y términos en inglés que aparezcan (términos técnicos, nombres propios, etc.) déjalas exactamente como están, solo corregí si tienen un error tipográfico evidente (ej: "lerning" → "learning")
+- No toques bloques de código (entre ` o ```)
+- Hacé modificaciones de la estructura Markdown para que el texto sea más fácil de leer, pero SIN AFECTAR EL SIGNIFICADO. Por ejemplo, agregar encabezados si la estructura del texto lo evidencia
+- No reescribas frases ni cambies el significado
+- Respondé SOLO con el texto corregido, nada más
 
-Texto corregido:"""
+TEXTO:
+{text}"""
 
     try:
         response = requests.post(
             f"{config['ollama_host']}/api/generate",
             json={
                 "model": config['model'],
+                "system": system_prompt,
                 "prompt": prompt,
                 "stream": False
             },
@@ -82,15 +82,20 @@ Texto corregido:"""
         print(f"Error al corregir texto: {e}")
         return text
 
-def show_diff(original, corrected, file_path):
-    """Muestra el diff entre original y corregido."""
-    diff = unified_diff(
-        original.splitlines(keepends=True),
-        corrected.splitlines(keepends=True),
-        fromfile=str(file_path),
-        tofile=str(file_path) + " (corregido)"
-    )
-    print("".join(diff))
+def show_colored_diff(original, corrected, file_path):
+    """Muestra diferencias coloreadas línea por línea."""
+    init(autoreset=True)
+    print(f"Diferencias para {file_path}:")
+    diff = ndiff(original.splitlines(), corrected.splitlines())
+    for line in diff:
+        if line.startswith('+ '):
+            print(Fore.GREEN + line)
+        elif line.startswith('- '):
+            print(Fore.RED + line)
+        elif line.startswith('? '):
+            print(Fore.YELLOW + line)
+        else:
+            print(line)
 
 def process_file(file_path, config, dry_run=False, show_diff_flag=False):
     """Procesa un archivo individual."""
@@ -107,25 +112,32 @@ def process_file(file_path, config, dry_run=False, show_diff_flag=False):
         print(f"No hay cambios en {file_path}")
         return
 
-    if show_diff_flag:
-        show_diff(original, corrected, file_path)
+    # Si se pidió preview (diff o dry-run), mostrar y preguntar confirmación
+    if show_diff_flag or dry_run:
+        if show_diff_flag:
+            show_colored_diff(original, corrected, file_path)
+        if dry_run:
+            print(f"Archivo corregido completo para {file_path}:")
+            print(corrected)
+        
+        response = input(f"¿Aplicar cambios a {file_path}? (s/n): ").strip().lower()
+        if response != 's':
+            print(f"Cambios rechazados para {file_path}")
+            return
 
-    if dry_run:
-        print(f"Cambios propuestos para {file_path}:")
-        print(corrected[:500] + "..." if len(corrected) > 500 else corrected)
-    else:
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(corrected)
-            print(f"Corregido: {file_path}")
-        except Exception as e:
-            print(f"Error al escribir {file_path}: {e}")
+    # Si llega aquí, aplicar cambios (confirmado o sin flags)
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(corrected)
+        print(f"Corregido: {file_path}")
+    except Exception as e:
+        print(f"Error al escribir {file_path}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Corrector automático de Markdown")
     parser.add_argument('path', help='Ruta al archivo .md o carpeta')
-    parser.add_argument('--dry-run', action='store_true', help='Mostrar cambios sin escribir')
-    parser.add_argument('--diff', action='store_true', help='Mostrar diff antes de confirmar')
+    parser.add_argument('--dry-run', action='store_true', help='Mostrar cambios y preguntar confirmación antes de aplicar')
+    parser.add_argument('--diff', action='store_true', help='Mostrar diff y preguntar confirmación antes de aplicar')
     parser.add_argument('--days', type=int, help='Solo archivos modificados en los últimos N días')
 
     args = parser.parse_args()

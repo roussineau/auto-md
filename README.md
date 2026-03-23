@@ -1,14 +1,14 @@
 # Auto-MD
-Auto-MD es un corrector automático de archivos Markdown que usa un LLM local (Ollama + qwen2.5:7b) para mejorar ortografía, estilo y formato sin tocar bloques de código ni cambiar el contenido principal.
+Auto-MD es un corrector automático de archivos Markdown que usa un LLM local para mejorar ortografía, estilo y formato sin tocar bloques de código ni cambiar el contenido principal.
 
 ## El problema
 Al usar Obsidian o cualquier editor Markdown para tomar notas rápidas, es normal cometer errores de tipo ortográfico, de formato o de consistencia (espacios, listas, encabezados).
 
 ## La solución
 Esta herramienta hace la limpieza de forma automática para que te concentres en el contenido:
-- Corrige errores ortográficos en español
+- Corrige errores ortográficos
 - Arregla errores semánticos y palabras mal escritas
-- Normaliza Markdown: encabezados, listas, saltos de línea, links, espacios
+- Normaliza y mejora Markdown: encabezados, listas, saltos de línea, links, espacios
 - Preserva términos técnicos, nombres propios, código y el significado general
 - No altera bloques de código (```) ni texto dentro de backticks (`)
 
@@ -22,7 +22,7 @@ Esta herramienta hace la limpieza de forma automática para que te concentres en
 ## Requisitos previos
 - Python 3.10+ instalado
 - Ollama instalado en la máquina que ejecuta el script
-- Modelo `qwen2.5:7b` descargado en Ollama
+- Modelo `qwen2.5:7b` descargado en Ollama, aunque puede ser reemplazado por otro elegido por el usuario
 
 ## Instalar y preparar
 ```bash
@@ -40,12 +40,12 @@ ollama serve
 python auto-md.py ~/vault --days 7
 ```
 
-### 2. Ver propuesta sin modificar archivos
+### 2. Ver propuesta antes de confirmar cambios
 ```bash
 python auto-md.py ~/vault/apuntes --dry-run
 ```
 
-### 3. Ver diferencias antes de aplicar
+### 3. Ver diferencias antes de confirmar cambios
 ```bash
 python auto-md.py ~/vault --diff
 ```
@@ -57,8 +57,8 @@ python auto-md.py ~/vault/apuntes/clase-hoy.md
 
 ## Opciones del script
 - `path`: ruta a archivo `.md` o carpeta
-- `--dry-run`: no escribe cambios, solo muestra salida
-- `--diff`: muestra `unified_diff` de antes/después
+- `--dry-run`: muestra el archivo completo corregido y pregunta confirmación antes de aplicar
+- `--diff`: muestra diferencias coloreadas y pregunta confirmación antes de aplicar
 - `--days N`: procesa solo archivos modificados en los últimos N días
 
 ## Cómo funciona internamente
@@ -67,8 +67,8 @@ python auto-md.py ~/vault/apuntes/clase-hoy.md
 3. Por cada archivo:
    - `process_file()` lee contenido
    - `correct_text()` envía el prompt a Ollama
-   - Si hay cambios, `--dry-run` muestra, si no escribe en disco
-   - `--diff` muestra diff para revisión
+   - Si `--dry-run` o `--diff`, muestra cambios/diff y pregunta confirmación
+   - Solo escribe en disco si el usuario confirma (o si no hay flags)
 
 ## Estado esperado de la configuración
 - Ollama levantado en `localhost:11434`
@@ -76,8 +76,8 @@ python auto-md.py ~/vault/apuntes/clase-hoy.md
 - Entorno virtual activo y dependencias instaladas
 
 ## Personalización
-- Se puede modificar el prompt de la función `correct_text` para que trabaje en otro idioma.
-- Se puede cambiar de modelo por uno más ligero o pesado, conociendo las implicaciones que esto tendría en la salida.
+- Se puede modificar el prompt de la función `correct_text`.
+- Se puede cambiar de modelo por uno más ligero o pesado, considerando las implicaciones que esto tendría en la salida.
 
 ---
 
