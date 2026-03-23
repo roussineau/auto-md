@@ -46,22 +46,46 @@ def get_files_to_process(path, days=None):
         print(f"Error: {path} no existe")
         return []
 
-def correct_text(text, config):
-    """Corrige el texto usando el LLM."""
-    system_prompt = """Sos un corrector ortográfico de notas escritas en español. Tu única tarea es corregir errores de ortografía y formato Markdown. Devolvés ÚNICAMENTE el texto corregido, sin comentarios, sin traducciones, sin explicaciones."""
+CHUNK_MAX_WORDS = 600
 
-    prompt = f"""Corregí los errores ortográficos y de formato Markdown del siguiente texto.
+def split_into_chunks(text, max_words=CHUNK_MAX_WORDS):
+    """Divide el texto en chunks por párrafos, sin superar max_words por chunk."""
+    paragraphs = text.split('\n\n')
+    chunks = []
+    current_chunk = []
+    current_words = 0
 
-IMPORTANTE:
-- NUNCA DEBES HACER TRADUCCIONES
-- La ortografía debe ser perfecta
-- Las palabras y términos en inglés que aparezcan (términos técnicos, nombres propios, etc.) déjalas exactamente como están, solo corregí si tienen un error tipográfico evidente (ej: "lerning" → "learning")
-- No toques bloques de código (entre ` o ```)
-- Hacé modificaciones de la estructura Markdown para que el texto sea más fácil de leer, pero SIN AFECTAR EL SIGNIFICADO. Por ejemplo, agregar encabezados si la estructura del texto lo evidencia
-- No reescribas frases ni cambies el significado
-- Respondé SOLO con el texto corregido, nada más
+    for paragraph in paragraphs:
+        words = len(paragraph.split())
+        if current_words + words > max_words and current_chunk:
+            chunks.append('\n\n'.join(current_chunk))
+            current_chunk = [paragraph]
+            current_words = words
+        else:
+            current_chunk.append(paragraph)
+            current_words += words
 
-TEXTO:
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
+
+    return chunks
+
+def correct_chunk(text, config):
+    """Envía un chunk al LLM y devuelve el texto corregido."""
+    system_prompt = """You are a spelling corrector for notes written in Spanish. Your only tasks are to fix spelling errors and clean up Markdown formatting. Return ONLY the corrected text, with no comments, no translations, and no explanations."""
+
+    prompt = f"""Fix the spelling errors and Markdown formatting in the following text.
+
+RULES:
+- DO NOT translate any word or line.
+- Spelling in Spanish MUST be perfect.
+- English words (technical terms, proper nouns, etc.) must stay in English exactly as written. Only fix obvious typos in them.
+- DO NOT touch code blocks (between ` or ```).
+- DO NOT rewrite sentences or change the meaning.
+- Markdown fixes must be conservative: fix what is broken, but do not add new structure unless it is very obvious.
+- Reply with ONLY the corrected text, nothing else.
+
+TEXT:
 {text}"""
 
     try:
@@ -76,11 +100,26 @@ TEXTO:
             timeout=config['timeout']
         )
         response.raise_for_status()
-        result = response.json()
-        return result['response'].strip()
+        return response.json()['response'].strip()
     except Exception as e:
-        print(f"Error al corregir texto: {e}")
+        print(f"Error al corregir chunk: {e}")
         return text
+
+def correct_text(text, config):
+    """Corrige el texto completo, dividiéndolo en chunks si es necesario."""
+    total_words = len(text.split())
+
+    if total_words <= CHUNK_MAX_WORDS:
+        return correct_chunk(text, config)
+
+    chunks = split_into_chunks(text)
+    print(f"  Archivo largo ({total_words} palabras), procesando en {len(chunks)} partes...")
+    corrected_chunks = []
+    for i, chunk in enumerate(chunks, 1):
+        print(f"  Parte {i}/{len(chunks)}...")
+        corrected_chunks.append(correct_chunk(chunk, config))
+
+    return '\n\n'.join(corrected_chunks)
 
 def show_colored_diff(original, corrected, file_path):
     """Muestra diferencias coloreadas línea por línea."""
