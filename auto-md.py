@@ -75,16 +75,16 @@ def correct_chunk(text, config):
     system_prompt = """You are a spelling corrector for notes written in Spanish. Your only tasks are to fix spelling errors and clean up Markdown formatting. Return ONLY the corrected text, with no comments, no translations, and no explanations."""
 
     prompt = f"""Fix the spelling errors and Markdown formatting in the following text.
-
+ 
 RULES:
 - DO NOT translate any word or line.
-- Spelling in Spanish MUST be perfect.
+- Fix Spanish spelling: accents, capitalization, and punctuation (commas, periods, question marks, exclamation marks — including inverted ¿ and ¡).
 - English words (technical terms, proper nouns, etc.) must stay in English exactly as written. Only fix obvious typos in them.
 - DO NOT touch code blocks (between ` or ```).
 - DO NOT rewrite sentences or change the meaning.
 - Markdown fixes must be conservative: fix what is broken, but do not add new structure unless it is very obvious.
 - Reply with ONLY the corrected text, nothing else.
-
+ 
 TEXT:
 {text}"""
 
